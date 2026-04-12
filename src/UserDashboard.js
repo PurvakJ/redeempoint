@@ -247,6 +247,7 @@ export default function UserDashboard({ user, onLogout }) {
     <div className="dashboard-container">
       {refreshing && <div className="toast-refresh">Refreshing data...</div>}
 
+      {/* Dashboard Header - Top */}
       <div className="dashboard-header">
         <div className="header-left">
           <div className="logo-small">
@@ -264,8 +265,10 @@ export default function UserDashboard({ user, onLogout }) {
         </div>
       </div>
 
+      {/* Points Bar */}
       {getPointsBar()}
 
+      {/* Tabs Section */}
       <div className="tabs">
         <button className={activeTab === "bills" ? "tab-active" : "tab"} onClick={() => setActiveTab("bills")}>📄 Add Bill</button>
         <button className={activeTab === "history" ? "tab-active" : "tab"} onClick={() => setActiveTab("history")}>📊 History</button>
@@ -273,6 +276,7 @@ export default function UserDashboard({ user, onLogout }) {
         <button className={activeTab === "redeem-history" ? "tab-active" : "tab"} onClick={() => setActiveTab("redeem-history")}>📜 Redeems</button>
       </div>
 
+      {/* Tab Content */}
       {activeTab === "bills" && (
         <div className="bill-form">
           <h3>Add New Bill</h3>
@@ -297,7 +301,9 @@ export default function UserDashboard({ user, onLogout }) {
                 <tbody>
                   {userData.bills.slice(0, 20).map((bill, i) => (
                     <tr key={i}>
-                      <td>{bill.billNo}</td><td>{bill.ref}</td><td>₹{bill.amount}</td>
+                      <td>{bill.billNo}</td>
+                      <td>{bill.ref}</td>
+                      <td>₹{bill.amount}</td>
                       <td>{bill.points.toFixed(2)}</td>
                       <td><span className={`status-${bill.status.toLowerCase()}`}>{getStatusBadge(bill.status)}</span></td>
                       <td>{bill.adminRemark || "-"}</td>
@@ -341,7 +347,8 @@ export default function UserDashboard({ user, onLogout }) {
                 <tbody>
                   {userData.redeems.slice(0, 20).map((redeem, i) => (
                     <tr key={i}>
-                      <td>{redeem.gift}</td><td>{redeem.points}</td>
+                      <td>{redeem.gift}</td>
+                      <td>{redeem.points}</td>
                       <td><span className={`status-${redeem.status.toLowerCase()}`}>{redeem.status}</span></td>
                       <td>{redeem.trackingId || "-"}</td>
                       <td>{new Date(redeem.date).toLocaleDateString()}</td>
@@ -354,20 +361,7 @@ export default function UserDashboard({ user, onLogout }) {
         </div>
       )}
       
-      <div className="brand-footer">
-        <div className="footer-content">
-          <div className="footer-logo">🌳 GREYSTONE</div>
-          <p>Premium Plywood & Furniture Solutions | Since 2020</p>
-          <div className="footer-stats">
-            <span>🏆 25 Year Guarantee</span>
-            <span>🌿 Eco-Friendly</span>
-            <span>💪 Termite & Water Proof</span>
-          </div>
-        </div>
-      </div>
-      
-      {submitLoading && <div className="loading-overlay"><div className="spinner-large"></div><p>Processing...</p></div>}
-      
+      {/* Hero Section - AT THE BOTTOM as you want */}
       <div className="hero-section">
         <div className="hero-overlay"></div>
         <div className="hero-content">
@@ -379,6 +373,7 @@ export default function UserDashboard({ user, onLogout }) {
         </div>
       </div>
       
+      {/* Products Showcase - AT THE BOTTOM */}
       <div className="products-showcase">
         <h2>Our Premium Products</h2>
         <div className="products-grid-mini">
@@ -392,6 +387,20 @@ export default function UserDashboard({ user, onLogout }) {
         </div>
       </div>
       
+      {/* Footer - AT THE BOTTOM */}
+      <div className="brand-footer">
+        <div className="footer-content">
+          <div className="footer-logo">🌳 GREYSTONE</div>
+          <p>Premium Plywood & Furniture Solutions | Since 2020</p>
+          <div className="footer-stats">
+            <span>🏆 25 Year Guarantee</span>
+            <span>🌿 Eco-Friendly</span>
+            <span>💪 Termite & Water Proof</span>
+          </div>
+        </div>
+      </div>
+      
+      {submitLoading && <div className="loading-overlay"><div className="spinner-large"></div><p>Processing...</p></div>}
     </div>
   );
 }

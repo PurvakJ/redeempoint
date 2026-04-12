@@ -257,10 +257,10 @@ export default function AdminDashboard({ onLogout }) {
   }
 
   return (
-    
     <div className="admin-container">
       {refreshing && <div className="toast-refresh">Refreshing data...</div>}
 
+      {/* Admin Header - Top */}
       <div className="admin-header">
         <div className="header-left">
           <div className="logo-small">
@@ -278,6 +278,7 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       </div>
 
+      {/* Tabs Section */}
       <div className="admin-tabs">
         <button className={activeTab === "pending" ? "tab-active" : "tab"} onClick={() => setActiveTab("pending")}>
           ⏳ Pending ({pendingBills.length})
@@ -288,6 +289,7 @@ export default function AdminDashboard({ onLogout }) {
         <button className={activeTab === "redeems" ? "tab-active" : "tab"} onClick={() => setActiveTab("redeems")}>📦 Redeems</button>
       </div>
 
+      {/* Tab Content - All the data tables */}
       {activeTab === "pending" && (
         <div className="admin-section">
           <h3>Pending Approvals ({pendingBills.length})</h3>
@@ -308,24 +310,9 @@ export default function AdminDashboard({ onLogout }) {
                       <td><strong>{bill.points.toFixed(2)}</strong></td>
                       <td>
                         <div className="action-buttons">
-                          <button 
-                            className="action-btn approve-btn" 
-                            onClick={() => { setSelectedBill(bill); setShowApproveModal(true); }} 
-                            disabled={actionLoading}
-                            title="Approve Bill"
-                          >✓</button>
-                          <button 
-                            className="action-btn cancel-btn" 
-                            onClick={() => { setSelectedBill(bill); setShowCancelModal(true); }} 
-                            disabled={actionLoading}
-                            title="Cancel Bill"
-                          >✗</button>
-                          <button 
-                            className="action-btn edit-btn" 
-                            onClick={() => { setSelectedBill(bill); setNewAmount(bill.amount); setShowUpdateModal(true); }} 
-                            disabled={actionLoading}
-                            title="Edit Bill"
-                          >✏️</button>
+                          <button className="action-btn approve-btn" onClick={() => { setSelectedBill(bill); setShowApproveModal(true); }} disabled={actionLoading} title="Approve Bill">✓</button>
+                          <button className="action-btn cancel-btn" onClick={() => { setSelectedBill(bill); setShowCancelModal(true); }} disabled={actionLoading} title="Cancel Bill">✗</button>
+                          <button className="action-btn edit-btn" onClick={() => { setSelectedBill(bill); setNewAmount(bill.amount); setShowUpdateModal(true); }} disabled={actionLoading} title="Edit Bill">✏️</button>
                         </div>
                       </td>
                     </tr>
@@ -454,25 +441,9 @@ export default function AdminDashboard({ onLogout }) {
                     <td><span className={`status-${redeem.status.toLowerCase()}`}>{redeem.status}</span></td>
                     <td>
                       <div className="action-buttons">
-                        <button 
-                          className="action-btn view-btn" 
-                          onClick={() => { setSelectedRedeem(redeem); setShowRedeemModal(true); }} 
-                          disabled={actionLoading}
-                          title="View Details"
-                        >👁️</button>
+                        <button className="action-btn view-btn" onClick={() => { setSelectedRedeem(redeem); setShowRedeemModal(true); }} disabled={actionLoading} title="View Details">👁️</button>
                         {getStatusOptions(redeem.status).length > 0 && (
-                          <select 
-                            className="status-select" 
-                            onChange={(e) => { 
-                              setSelectedRedeem(redeem); 
-                              setSelectedStatus(e.target.value); 
-                              setTrackingId("");
-                              setCancelReason("");
-                              setShowStatusModal(true); 
-                            }} 
-                            value="" 
-                            disabled={actionLoading}
-                          >
+                          <select className="status-select" onChange={(e) => { setSelectedRedeem(redeem); setSelectedStatus(e.target.value); setTrackingId(""); setCancelReason(""); setShowStatusModal(true); }} value="" disabled={actionLoading}>
                             <option value="">Change</option>
                             {getStatusOptions(redeem.status).map(opt => (
                               <option key={opt} value={opt}>{opt}</option>
@@ -489,6 +460,35 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       )}
 
+      {/* Hero Section - AT THE BOTTOM as you want */}
+      <div className="hero-section admin-hero">
+        <div className="hero-overlay"></div>
+        <div className="hero-content">
+          <h1>GREYSTONE Admin</h1>
+          <p>Complete Management Dashboard</p>
+          <div className="hero-badges">
+            <span>🏆 25 Year Guarantee</span>
+            <span>🌿 Eco-Friendly</span>
+            <span>💪 Termite Proof</span>
+          </div>
+        </div>
+      </div>
+      
+      {/* Quality Features - AT THE BOTTOM */}
+      <div className="quality-features">
+        <h2>Quality Standards</h2>
+        <div className="quality-grid">
+          {brandData.qualityFeatures.map((feature, idx) => (
+            <div key={idx} className="quality-card">
+              <div className="quality-icon">{feature.icon}</div>
+              <h4>{feature.title}</h4>
+              <p>{feature.description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Footer Stats - AT THE BOTTOM */}
       <div className="brand-stats-footer">
         <div className="stats-container">
           {brandData.stats.map((stat, idx) => (
@@ -503,20 +503,14 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       </div>
 
-      {/* Approve Modal */}
+      {/* All Modals */}
       {showApproveModal && selectedBill && (
         <div className="modal-overlay" onClick={() => setShowApproveModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3>Approve Bill</h3>
             <p>Bill: <strong>{selectedBill.billNo}</strong> | Amount: ₹{selectedBill.amount}</p>
             <p>Points to add: <strong>{selectedBill.points.toFixed(2)}</strong></p>
-            <textarea 
-              placeholder="Admin remark (optional)" 
-              value={adminRemark} 
-              onChange={e => setAdminRemark(e.target.value)} 
-              className="form-input" 
-              rows="2" 
-            />
+            <textarea placeholder="Admin remark (optional)" value={adminRemark} onChange={e => setAdminRemark(e.target.value)} className="form-input" rows="2" />
             <div className="modal-actions">
               <button onClick={handleApproveBill} className="submit-btn approve-btn" disabled={actionLoading}>
                 {actionLoading ? <div className="spinner"></div> : "Approve"}
@@ -527,19 +521,12 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       )}
 
-      {/* Cancel Modal */}
       {showCancelModal && selectedBill && (
         <div className="modal-overlay" onClick={() => setShowCancelModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3>Cancel Bill</h3>
             <p>Bill: <strong>{selectedBill.billNo}</strong></p>
-            <textarea 
-              placeholder="Cancel reason *" 
-              value={cancelReason} 
-              onChange={e => setCancelReason(e.target.value)} 
-              className="form-input" 
-              rows="3" 
-            />
+            <textarea placeholder="Cancel reason *" value={cancelReason} onChange={e => setCancelReason(e.target.value)} className="form-input" rows="3" />
             <div className="modal-actions">
               <button onClick={handleCancelBill} className="submit-btn cancel-btn" disabled={actionLoading}>
                 {actionLoading ? <div className="spinner"></div> : "Confirm Cancel"}
@@ -550,26 +537,13 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       )}
 
-      {/* Update Bill Modal */}
       {showUpdateModal && selectedBill && (
         <div className="modal-overlay" onClick={() => setShowUpdateModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3>Update Bill</h3>
             <p>Current Amount: ₹{selectedBill.amount}</p>
-            <input 
-              type="number" 
-              placeholder="New Amount" 
-              value={newAmount} 
-              onChange={e => setNewAmount(e.target.value)} 
-              className="form-input" 
-            />
-            <textarea 
-              placeholder="Reason for update *" 
-              value={updateReason} 
-              onChange={e => setUpdateReason(e.target.value)} 
-              className="form-input" 
-              rows="2" 
-            />
+            <input type="number" placeholder="New Amount" value={newAmount} onChange={e => setNewAmount(e.target.value)} className="form-input" />
+            <textarea placeholder="Reason for update *" value={updateReason} onChange={e => setUpdateReason(e.target.value)} className="form-input" rows="2" />
             <div className="modal-actions">
               <button onClick={handleUpdateBill} className="submit-btn" disabled={actionLoading}>
                 {actionLoading ? <div className="spinner"></div> : "Update"}
@@ -580,24 +554,12 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       )}
 
-      {/* Add Gift Modal */}
       {showGiftModal && (
         <div className="modal-overlay" onClick={() => setShowGiftModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3>Add Gift</h3>
-            <input 
-              placeholder="Gift Name" 
-              value={giftName} 
-              onChange={e => setGiftName(e.target.value)} 
-              className="form-input" 
-            />
-            <input 
-              type="number" 
-              placeholder="Points Required" 
-              value={giftPoints} 
-              onChange={e => setGiftPoints(e.target.value)} 
-              className="form-input" 
-            />
+            <input placeholder="Gift Name" value={giftName} onChange={e => setGiftName(e.target.value)} className="form-input" />
+            <input type="number" placeholder="Points Required" value={giftPoints} onChange={e => setGiftPoints(e.target.value)} className="form-input" />
             <div className="modal-actions">
               <button onClick={handleAddGift} className="submit-btn" disabled={actionLoading}>
                 {actionLoading ? <div className="spinner"></div> : "Add Gift"}
@@ -608,28 +570,16 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       )}
 
-      {/* Status Update Modal */}
       {showStatusModal && selectedRedeem && (
         <div className="modal-overlay" onClick={() => setShowStatusModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3>Update Status to {selectedStatus}</h3>
             {selectedStatus === "Approved" && (
-              <input 
-                placeholder="Tracking ID *" 
-                value={trackingId} 
-                onChange={e => setTrackingId(e.target.value)} 
-                className="form-input" 
-              />
+              <input placeholder="Tracking ID *" value={trackingId} onChange={e => setTrackingId(e.target.value)} className="form-input" />
             )}
             {selectedStatus === "Cancelled" && (
               <>
-                <textarea 
-                  placeholder="Cancel reason *" 
-                  value={cancelReason} 
-                  onChange={e => setCancelReason(e.target.value)} 
-                  className="form-input" 
-                  rows="3" 
-                />
+                <textarea placeholder="Cancel reason *" value={cancelReason} onChange={e => setCancelReason(e.target.value)} className="form-input" rows="3" />
                 <p className="warning-text">⚠️ Points will be refunded to the user</p>
               </>
             )}
@@ -643,7 +593,6 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       )}
 
-      {/* View Redeem Modal */}
       {showRedeemModal && selectedRedeem && (
         <div className="modal-overlay" onClick={() => setShowRedeemModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -676,33 +625,6 @@ export default function AdminDashboard({ onLogout }) {
           <p>Processing...</p>
         </div>
       )}
-      
-      <div className="hero-section admin-hero">
-        <div className="hero-overlay"></div>
-        <div className="hero-content">
-          <h1>GREYSTONE Admin</h1>
-          <p>Complete Management Dashboard</p>
-          <div className="hero-badges">
-            <span>🏆 25 Year Guarantee</span>
-            <span>🌿 Eco-Friendly</span>
-            <span>💪 Termite Proof</span>
-          </div>
-        </div>
-      </div>
-      
-      <div className="quality-features">
-        <h2>Quality Standards</h2>
-        <div className="quality-grid">
-          {brandData.qualityFeatures.map((feature, idx) => (
-            <div key={idx} className="quality-card">
-              <div className="quality-icon">{feature.icon}</div>
-              <h4>{feature.title}</h4>
-              <p>{feature.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-      
     </div>
   );
 }

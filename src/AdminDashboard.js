@@ -1,4 +1,4 @@
-// ================= React Frontend - AdminDashboard.js (FIXED REDEEM SECTION) =================
+// ================= React Frontend - AdminDashboard.js (Fixed Dealer Name) =================
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "./api";
 
@@ -60,7 +60,10 @@ export default function AdminDashboard({ onLogout }) {
         api("getAllGifts"), api("getAllRedeems"), api("getProducts")
       ]);
       
-      if (usersRes.success) setUsers(usersRes.users);
+      if (usersRes.success) {
+        console.log("Users loaded:", usersRes.users);
+        setUsers(usersRes.users);
+      }
       if (billsRes.success) setBills(billsRes.bills);
       if (pendingRes.success) setPendingBills(pendingRes.pendingBills);
       if (giftsRes.success) {
@@ -85,6 +88,20 @@ export default function AdminDashboard({ onLogout }) {
       if (abortControllerRef.current) abortControllerRef.current.abort();
     };
   }, [loadData]);
+
+  // FIXED: Helper function to get user name from mobile number
+  const getUserName = (mobile) => {
+    if (!users || users.length === 0) return mobile;
+    const user = users.find(u => String(u.mobileNumber) === String(mobile));
+    console.log(`Looking for mobile: ${mobile}, found:`, user);
+    return user ? user.name : mobile;
+  };
+
+  // FIXED: Helper function to get user details
+  const getUserDetails = (mobile) => {
+    if (!users || users.length === 0) return null;
+    return users.find(u => String(u.mobileNumber) === String(mobile));
+  };
 
   const handleApproveBill = async () => {
     setActionLoading(true);
@@ -203,7 +220,6 @@ export default function AdminDashboard({ onLogout }) {
     }
   };
 
-  // Function to handle approve redeem (opens modal for tracking ID)
   const handleApproveRedeem = (redeem) => {
     setSelectedRedeem(redeem);
     setSelectedStatus("Approved");
@@ -212,7 +228,6 @@ export default function AdminDashboard({ onLogout }) {
     setShowStatusModal(true);
   };
 
-  // Function to handle deliver redeem
   const handleDeliverRedeem = (redeem) => {
     setSelectedRedeem(redeem);
     setSelectedStatus("Delivered");
@@ -221,7 +236,6 @@ export default function AdminDashboard({ onLogout }) {
     setShowStatusModal(true);
   };
 
-  // Function to handle cancel redeem
   const handleCancelRedeem = (redeem) => {
     setSelectedRedeem(redeem);
     setSelectedStatus("Cancelled");
@@ -257,9 +271,7 @@ export default function AdminDashboard({ onLogout }) {
     } else alert(res.error);
   };
 
-  // Helper to check what actions are available for a redeem status - FIXED: case insensitive comparison
   const getAvailableActions = (currentStatus) => {
-    // Convert to lowercase for case-insensitive comparison
     const status = currentStatus?.toLowerCase();
     switch(status) {
       case "pending":
@@ -327,6 +339,7 @@ export default function AdminDashboard({ onLogout }) {
         <button className={activeTab === "redeems" ? "tab-active" : "tab"} onClick={() => setActiveTab("redeems")}>📦 Redeems</button>
       </div>
 
+      {/* Pending Bills Section - Now with Dealer Name */}
       {activeTab === "pending" && (
         <div className="admin-section">
           <h3>Pending Approvals ({pendingBills.length})</h3>
@@ -336,29 +349,51 @@ export default function AdminDashboard({ onLogout }) {
             <div className="table-container">
               <table className="data-table">
                 <thead>
-                  <tr><th>Bill No</th><th>Mobile</th><th>Products</th><th>Total Points</th><th>Actions</th></tr>
+                  <tr>
+                    <th>Bill No</th>
+                    <th>Mobile</th>
+                    <th>Dealer Name</th>
+                    <th>Products</th>
+                    <th>Total Points</th>
+                    <th>Reference</th>
+                    <th>Actions</th>
+                  </tr>
                 </thead>
                 <tbody>
-                  {pendingBills.slice(0, 30).map((bill, i) => (
-                    <tr key={i}>
-                      <td>{bill.billNo}</td>
-                      <td>{bill.mobile}</td>
-                      <td>
-                        <div className="products-list">
-                          {bill.products && bill.products.map((p, idx) => (
-                            <div key={idx}>{p.name} x{p.quantity} ({p.pointsPerUnit} pts)</div>
-                          ))}
-                        </div>
-                       </td>
-                      <td><strong>{bill.totalPoints?.toFixed(2)}</strong></td>
-                      <td>
-                        <div className="action-buttons">
-                          <button className="action-btn approve-btn" onClick={() => { setSelectedBill(bill); setShowApproveModal(true); }} disabled={actionLoading} title="Approve Bill">✓ Approve</button>
-                          <button className="action-btn cancel-btn" onClick={() => { setSelectedBill(bill); setShowCancelModal(true); }} disabled={actionLoading} title="Cancel Bill">✗ Cancel</button>
-                        </div>
-                       </td>
-                     </tr>
-                  ))}
+                  {pendingBills.slice(0, 30).map((bill, i) => {
+                    const dealer = getUserDetails(bill.mobile);
+                    return (
+                      <tr key={i}>
+                        <td>{bill.billNo}</td>
+                        <td>{bill.mobile}</td>
+                        <td>
+                          <strong style={{ color: '#2c7da0' }}>
+                            {dealer ? dealer.name : bill.mobile}
+                          </strong>
+                          {dealer && dealer.totalPoints !== undefined && (
+                            <span style={{ fontSize: '11px', display: 'block', color: '#666' }}>
+                              Points: {dealer.totalPoints.toFixed(0)}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <div className="products-list">
+                            {bill.products && bill.products.map((p, idx) => (
+                              <div key={idx}>{p.name} x{p.quantity} ({p.pointsPerUnit} pts)</div>
+                            ))}
+                          </div>
+                        </td>
+                        <td><strong>{bill.totalPoints?.toFixed(2)}</strong></td>
+                        <td>{bill.referenceName || "-"}</td>
+                        <td>
+                          <div className="action-buttons">
+                            <button className="action-btn approve-btn" onClick={() => { setSelectedBill(bill); setShowApproveModal(true); }} disabled={actionLoading} title="Approve Bill">✓ Approve</button>
+                            <button className="action-btn cancel-btn" onClick={() => { setSelectedBill(bill); setShowCancelModal(true); }} disabled={actionLoading} title="Cancel Bill">✗ Cancel</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -366,30 +401,48 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       )}
 
+      {/* All Bills Section - Now with Dealer Name */}
       {activeTab === "allbills" && (
         <div className="admin-section">
           <h3>All Bills ({bills.length})</h3>
           <div className="table-container">
             <table className="data-table">
               <thead>
-                <tr><th>Bill No</th><th>Mobile</th><th>Products</th><th>Total Points</th><th>Status</th></tr>
+                <tr>
+                  <th>Bill No</th>
+                  <th>Mobile</th>
+                  <th>Dealer Name</th>
+                  <th>Products</th>
+                  <th>Total Points</th>
+                  <th>Reference</th>
+                  <th>Status</th>
+                </tr>
               </thead>
               <tbody>
-                {bills.slice(0, 50).map((bill, i) => (
-                  <tr key={i}>
-                    <td>{bill.billNo}</td>
-                    <td>{bill.mobile}</td>
-                    <td>
-                      <div className="products-list">
-                        {bill.products && bill.products.map((p, idx) => (
-                          <div key={idx}>{p.name} x{p.quantity}</div>
-                        ))}
-                      </div>
-                    </td>
-                    <td>{bill.totalPoints?.toFixed(2)}</td>
-                    <td><span className={`status-${bill.status?.toLowerCase()}`}>{bill.status}</span></td>
-                   </tr>
-                ))}
+                {bills.slice(0, 50).map((bill, i) => {
+                  const dealer = getUserDetails(bill.mobile);
+                  return (
+                    <tr key={i}>
+                      <td>{bill.billNo}</td>
+                      <td>{bill.mobile}</td>
+                      <td>
+                        <strong style={{ color: '#2c7da0' }}>
+                          {dealer ? dealer.name : bill.mobile}
+                        </strong>
+                      </td>
+                      <td>
+                        <div className="products-list">
+                          {bill.products && bill.products.map((p, idx) => (
+                            <div key={idx}>{p.name} x{p.quantity}</div>
+                          ))}
+                        </div>
+                      </td>
+                      <td>{bill.totalPoints?.toFixed(2)}</td>
+                      <td>{bill.referenceName || "-"}</td>
+                      <td><span className={`status-${bill.status?.toLowerCase()}`}>{bill.status}</span></td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -420,10 +473,10 @@ export default function AdminDashboard({ onLogout }) {
                 {users.slice(0, 50).map((u, i) => (
                   <tr key={i}>
                     <td>{u.mobileNumber}</td>
-                    <td>{u.name}</td>
+                    <td><strong>{u.name}</strong></td>
                     <td><strong>{u.totalPoints.toFixed(2)}</strong></td>
                     <td>{new Date(u.createdAt).toLocaleDateString()}</td>
-                   </tr>
+                  </tr>
                 ))}
               </tbody>
             </table>
@@ -477,7 +530,6 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       )}
 
-      {/* FIXED REDEEM SECTION - Now shows proper action buttons */}
       {activeTab === "redeems" && (
         <div className="admin-section">
           <h3>Redeem Requests</h3>
@@ -509,21 +561,28 @@ export default function AdminDashboard({ onLogout }) {
                 <tr>
                   <th>ID</th>
                   <th>Mobile</th>
+                  <th>Dealer Name</th>
                   <th>Gift</th>
                   <th>Points</th>
                   <th>Address</th>
                   <th>Status</th>
                   <th>Tracking ID</th>
                   <th>Actions</th>
-                 </tr>
+                </tr>
               </thead>
               <tbody>
                 {redeems.slice(0, 30).map((redeem, i) => {
                   const availableActions = getAvailableActions(redeem.status);
+                  const dealer = getUserDetails(redeem.mobile);
                   return (
                     <tr key={i}>
                       <td>{redeem.id}</td>
                       <td>{redeem.mobile}</td>
+                      <td>
+                        <strong style={{ color: '#2c7da0' }}>
+                          {dealer ? dealer.name : redeem.mobile}
+                        </strong>
+                      </td>
                       <td>{redeem.gift}</td>
                       <td>{redeem.points}</td>
                       <td className="address-cell">{redeem.address?.substring(0, 30)}...</td>
@@ -570,7 +629,7 @@ export default function AdminDashboard({ onLogout }) {
                             </button>
                           )}
                         </div>
-                       </td>
+                      </td>
                     </tr>
                   );
                 })}
@@ -626,6 +685,9 @@ export default function AdminDashboard({ onLogout }) {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3>Approve Bill</h3>
             <p>Bill: <strong>{selectedBill.billNo}</strong></p>
+            <p>Dealer: <strong style={{ color: '#2c7da0' }}>{getUserName(selectedBill.mobile)}</strong></p>
+            <p>Mobile: {selectedBill.mobile}</p>
+            <p>Reference: {selectedBill.referenceName}</p>
             <div className="products-details">
               {selectedBill.products && selectedBill.products.map((p, idx) => (
                 <div key={idx}>{p.name} x{p.quantity} = {p.quantity * p.pointsPerUnit} points</div>
@@ -655,6 +717,7 @@ export default function AdminDashboard({ onLogout }) {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3>Cancel Bill</h3>
             <p>Bill: <strong>{selectedBill.billNo}</strong></p>
+            <p>Dealer: <strong style={{ color: '#2c7da0' }}>{getUserName(selectedBill.mobile)}</strong></p>
             <textarea 
               placeholder="Cancel reason *" 
               value={cancelReason} 
@@ -734,6 +797,7 @@ export default function AdminDashboard({ onLogout }) {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3>Update Status to {selectedStatus}</h3>
             <p>Redeem ID: <strong>{selectedRedeem.id}</strong></p>
+            <p>Dealer: <strong style={{ color: '#2c7da0' }}>{getUserName(selectedRedeem.mobile)}</strong></p>
             <p>Gift: {selectedRedeem.gift}</p>
             <p>Points: {selectedRedeem.points}</p>
             
@@ -788,6 +852,7 @@ export default function AdminDashboard({ onLogout }) {
             <div className="details-container">
               <div className="detail-row"><strong>ID:</strong> {selectedRedeem.id}</div>
               <div className="detail-row"><strong>Mobile:</strong> {selectedRedeem.mobile}</div>
+              <div className="detail-row"><strong>Dealer Name:</strong> <span style={{ color: '#2c7da0', fontWeight: 'bold' }}>{getUserName(selectedRedeem.mobile)}</span></div>
               <div className="detail-row"><strong>Gift:</strong> {selectedRedeem.gift}</div>
               <div className="detail-row"><strong>Points:</strong> {selectedRedeem.points}</div>
               <div className="detail-row"><strong>Address:</strong> {selectedRedeem.address}</div>

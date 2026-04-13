@@ -1,4 +1,4 @@
-// ================= React Frontend - UserDashboard.js (UPDATED with Multi-Product & Manual Bill No) =================
+// ================= React Frontend - UserDashboard.js (Quantity starts blank) =================
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "./api";
 
@@ -14,7 +14,7 @@ export default function UserDashboard({ user, onLogout }) {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState("");
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(""); // Changed from 1 to empty string
   
   const dataLoadedRef = useRef(false);
   const abortControllerRef = useRef(null);
@@ -69,8 +69,12 @@ export default function UserDashboard({ user, onLogout }) {
   }, [loadData]);
 
   const addBillItem = () => {
-    if (!selectedProduct || !quantity) {
-      alert("Please select product and enter quantity");
+    if (!selectedProduct) {
+      alert("Please select a product");
+      return;
+    }
+    if (!quantity || quantity <= 0) {
+      alert("Please enter a valid quantity");
       return;
     }
     const product = products.find(p => p.name === selectedProduct);
@@ -83,7 +87,7 @@ export default function UserDashboard({ user, onLogout }) {
       totalPoints: quantity * product.points
     }]);
     setSelectedProduct("");
-    setQuantity(1);
+    setQuantity(""); // Reset to empty string
   };
 
   const removeBillItem = (index) => {
@@ -261,7 +265,6 @@ export default function UserDashboard({ user, onLogout }) {
 
   if (!userData) return <div className="error-state">Failed to load data. Please refresh.</div>;
 
-
   return (
     <div className="dashboard-container">
       {refreshing && <div className="toast-refresh">Refreshing data...</div>}
@@ -328,9 +331,9 @@ export default function UserDashboard({ user, onLogout }) {
               
               <input 
                 type="number" 
-                placeholder="Qty" 
+                placeholder="Quantity *" 
                 value={quantity} 
-                onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} 
+                onChange={e => setQuantity(e.target.value)} 
                 className="form-input quantity-input" 
                 disabled={submitLoading}
                 min="1"
@@ -388,13 +391,13 @@ export default function UserDashboard({ user, onLogout }) {
                       <td>{bill.billNo}</td>
                       <td>
                         <div className="products-list">
-                          {bill.products.map((p, idx) => (
+                          {bill.products && bill.products.map((p, idx) => (
                             <div key={idx}>{p.name} x{p.quantity}</div>
                           ))}
                         </div>
                       </td>
-                      <td>{bill.totalPoints.toFixed(2)}</td>
-                      <td><span className={`status-${bill.status.toLowerCase()}`}>{getStatusBadge(bill.status)}</span></td>
+                      <td>{bill.totalPoints?.toFixed(2)}</td>
+                      <td><span className={`status-${bill.status?.toLowerCase()}`}>{getStatusBadge(bill.status)}</span></td>
                       <td>{bill.adminRemark || "-"}</td>
                     </tr>
                   ))}
@@ -439,7 +442,7 @@ export default function UserDashboard({ user, onLogout }) {
                     <tr key={i}>
                       <td>{redeem.gift}</td>
                       <td>{redeem.points}</td>
-                      <td><span className={`status-${redeem.status.toLowerCase()}`}>{redeem.status}</span></td>
+                      <td><span className={`status-${redeem.status?.toLowerCase()}`}>{redeem.status}</span></td>
                       <td>{redeem.trackingId || "-"}</td>
                       <td>{new Date(redeem.date).toLocaleDateString()}</td>
                     </tr>

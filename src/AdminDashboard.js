@@ -1,21 +1,21 @@
-// ================= React Frontend - AdminDashboard.js (Optimized & Fixed) =================
+// ================= React Frontend - AdminDashboard.js (FIXED REDEEM SECTION) =================
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "./api";
 
 export default function AdminDashboard({ onLogout }) {
-  const [activeTab, setActiveTab]= useState("pending");
+  const [activeTab, setActiveTab] = useState("pending");
   const [users, setUsers] = useState([]);
   const [bills, setBills] = useState([]);
   const [pendingBills, setPendingBills] = useState([]);
   const [gifts, setGifts] = useState([]);
+  const [products, setProducts] = useState([]);
   const [redeems, setRedeems] = useState([]);
-  const [pointsSetting, setPointsSetting] = useState(1);
   const [selectedBill, setSelectedBill] = useState(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [newAmount, setNewAmount] = useState("");
-  const [updateReason, setUpdateReason] = useState("");
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [productName, setProductName] = useState("");
+  const [productPoints, setProductPoints] = useState("");
   const [adminRemark, setAdminRemark] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [showGiftModal, setShowGiftModal] = useState(false);
@@ -30,7 +30,6 @@ export default function AdminDashboard({ onLogout }) {
   const [actionLoading, setActionLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   
-  // Cache and abort control
   const dataLoadedRef = useRef(false);
   const abortControllerRef = useRef(null);
 
@@ -49,29 +48,27 @@ export default function AdminDashboard({ onLogout }) {
   };
 
   const loadData = useCallback(async (showFullLoading = false) => {
-    if (showFullLoading && !dataLoadedRef.current) {
-      setLoading(true);
-    } else if (dataLoadedRef.current) {
-      setRefreshing(true);
-    }
+    if (showFullLoading && !dataLoadedRef.current) setLoading(true);
+    else if (dataLoadedRef.current) setRefreshing(true);
     
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+    if (abortControllerRef.current) abortControllerRef.current.abort();
     abortControllerRef.current = new AbortController();
     
     try {
-      const [usersRes, billsRes, pendingRes, giftsRes, redeemsRes, pointsRes] = await Promise.all([
+      const [usersRes, billsRes, pendingRes, giftsRes, redeemsRes, productsRes] = await Promise.all([
         api("getAllUsers"), api("getAllBills"), api("getPendingBills"),
-        api("getAllGifts"), api("getAllRedeems"), api("getPointSetting")
+        api("getAllGifts"), api("getAllRedeems"), api("getProducts")
       ]);
       
       if (usersRes.success) setUsers(usersRes.users);
       if (billsRes.success) setBills(billsRes.bills);
       if (pendingRes.success) setPendingBills(pendingRes.pendingBills);
-      if (giftsRes.success) setGifts(giftsRes.gifts);
+      if (giftsRes.success) {
+        const sortedGifts = giftsRes.gifts.sort((a, b) => a.points - b.points);
+        setGifts(sortedGifts);
+      }
       if (redeemsRes.success) setRedeems(redeemsRes.redeems);
-      if (pointsRes.success) setPointsSetting(pointsRes.pointsPerThousand);
+      if (productsRes.success) setProducts(productsRes.products);
       
       dataLoadedRef.current = true;
     } catch (error) {
@@ -85,9 +82,7 @@ export default function AdminDashboard({ onLogout }) {
   useEffect(() => {
     loadData(true);
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+      if (abortControllerRef.current) abortControllerRef.current.abort();
     };
   }, [loadData]);
 
@@ -122,33 +117,44 @@ export default function AdminDashboard({ onLogout }) {
     } else alert(res.error);
   };
 
-  const handleUpdateBill = async () => {
-    if (!newAmount || !updateReason) {
-      alert("Please enter new amount and reason");
+  const handleAddProduct = async () => {
+    if (!productName || !productPoints) {
+      alert("Please enter product name and points");
       return;
     }
     setActionLoading(true);
-    const res = await api("updateBill", { billNo: selectedBill.billNo, newAmount: Number(newAmount), reason: updateReason });
+    const res = await api("addProduct", { name: productName, points: Number(productPoints) });
     setActionLoading(false);
     if (res.success) {
-      alert("Bill updated successfully!");
-      setShowUpdateModal(false);
-      setSelectedBill(null);
-      setNewAmount("");
-      setUpdateReason("");
+      alert("Product added successfully!");
+      setShowProductModal(false);
+      setProductName("");
+      setProductPoints("");
       loadData(false);
     } else alert(res.error);
   };
 
-  const handleUpdateGift = async (gift) => {
-    const newName = prompt("Enter new gift name:", gift.name);
-    const newPoints = prompt("Enter new points:", gift.points);
+  const handleUpdateProduct = async (product) => {
+    const newName = prompt("Enter new product name:", product.name);
+    const newPoints = prompt("Enter new points per unit:", product.points);
     if (newName && newPoints) {
       setActionLoading(true);
-      const res = await api("updateGift", { oldName: gift.name, newName, points: Number(newPoints), active: true });
+      const res = await api("updateProduct", { oldName: product.name, newName, points: Number(newPoints) });
       setActionLoading(false);
       if (res.success) {
-        alert("Gift updated!");
+        alert("Product updated!");
+        loadData(false);
+      } else alert(res.error);
+    }
+  };
+
+  const handleDeleteProduct = async (productName) => {
+    if (window.confirm(`Delete product "${productName}"? This will affect existing bills.`)) {
+      setActionLoading(true);
+      const res = await api("deleteProduct", { name: productName });
+      setActionLoading(false);
+      if (res.success) {
+        alert("Product deleted!");
         loadData(false);
       } else alert(res.error);
     }
@@ -171,6 +177,20 @@ export default function AdminDashboard({ onLogout }) {
     } else alert(res.error);
   };
 
+  const handleUpdateGift = async (gift) => {
+    const newName = prompt("Enter new gift name:", gift.name);
+    const newPoints = prompt("Enter new points:", gift.points);
+    if (newName && newPoints) {
+      setActionLoading(true);
+      const res = await api("updateGift", { oldName: gift.name, newName, points: Number(newPoints), active: true });
+      setActionLoading(false);
+      if (res.success) {
+        alert("Gift updated!");
+        loadData(false);
+      } else alert(res.error);
+    }
+  };
+
   const handleDeleteGift = async (giftName) => {
     if (window.confirm(`Delete ${giftName}?`)) {
       setActionLoading(true);
@@ -181,6 +201,33 @@ export default function AdminDashboard({ onLogout }) {
         loadData(false);
       } else alert(res.error);
     }
+  };
+
+  // Function to handle approve redeem (opens modal for tracking ID)
+  const handleApproveRedeem = (redeem) => {
+    setSelectedRedeem(redeem);
+    setSelectedStatus("Approved");
+    setTrackingId("");
+    setCancelReason("");
+    setShowStatusModal(true);
+  };
+
+  // Function to handle deliver redeem
+  const handleDeliverRedeem = (redeem) => {
+    setSelectedRedeem(redeem);
+    setSelectedStatus("Delivered");
+    setTrackingId("");
+    setCancelReason("");
+    setShowStatusModal(true);
+  };
+
+  // Function to handle cancel redeem
+  const handleCancelRedeem = (redeem) => {
+    setSelectedRedeem(redeem);
+    setSelectedStatus("Cancelled");
+    setTrackingId("");
+    setCancelReason("");
+    setShowStatusModal(true);
   };
 
   const handleUpdateRedeemStatus = async () => {
@@ -210,29 +257,24 @@ export default function AdminDashboard({ onLogout }) {
     } else alert(res.error);
   };
 
-  const handleUpdatePointsSetting = async () => {
-    const newValue = prompt("Enter points per ₹1000:", pointsSetting);
-    if (newValue) {
-      setActionLoading(true);
-      const res = await api("updatePointSetting", { pointsPerThousand: Number(newValue) });
-      setActionLoading(false);
-      if (res.success) {
-        alert("Points setting updated!");
-        setPointsSetting(Number(newValue));
-        loadData(false);
-      } else alert(res.error);
+  // Helper to check what actions are available for a redeem status - FIXED: case insensitive comparison
+  const getAvailableActions = (currentStatus) => {
+    // Convert to lowercase for case-insensitive comparison
+    const status = currentStatus?.toLowerCase();
+    switch(status) {
+      case "pending":
+        return ["approve", "cancel"];
+      case "approved":
+        return ["deliver", "cancel"];
+      case "delivered":
+        return [];
+      case "cancelled":
+        return [];
+      default:
+        return [];
     }
   };
 
-  const getStatusOptions = (currentStatus) => {
-    switch(currentStatus) {
-      case "Pending": return ["Approved", "Cancelled"];
-      case "Approved": return ["Delivered", "Cancelled"];
-      default: return [];
-    }
-  };
-
-  // Skeleton Loader for Admin Dashboard
   if (loading) {
     return (
       <div className="admin-container">
@@ -242,6 +284,7 @@ export default function AdminDashboard({ onLogout }) {
           <div className="skeleton-btn"></div>
         </div>
         <div className="admin-tabs-skeleton">
+          <div className="skeleton-tab"></div>
           <div className="skeleton-tab"></div>
           <div className="skeleton-tab"></div>
           <div className="skeleton-tab"></div>
@@ -260,7 +303,6 @@ export default function AdminDashboard({ onLogout }) {
     <div className="admin-container">
       {refreshing && <div className="toast-refresh">Refreshing data...</div>}
 
-      {/* Admin Header - Top */}
       <div className="admin-header">
         <div className="header-left">
           <div className="logo-small">
@@ -270,26 +312,21 @@ export default function AdminDashboard({ onLogout }) {
           <p className="welcome-text">GREYSTONE Management</p>
         </div>
         <div className="header-right">
-          <div className="points-setting">
-            <span>Points/₹1000: {pointsSetting}</span>
-            <button onClick={handleUpdatePointsSetting} className="small-btn" disabled={actionLoading}>Edit</button>
-          </div>
           <button onClick={onLogout} className="logout-btn" disabled={actionLoading}>🚪 Logout</button>
         </div>
       </div>
 
-      {/* Tabs Section */}
       <div className="admin-tabs">
         <button className={activeTab === "pending" ? "tab-active" : "tab"} onClick={() => setActiveTab("pending")}>
           ⏳ Pending ({pendingBills.length})
         </button>
         <button className={activeTab === "allbills" ? "tab-active" : "tab"} onClick={() => setActiveTab("allbills")}>📄 Bills</button>
         <button className={activeTab === "users" ? "tab-active" : "tab"} onClick={() => setActiveTab("users")}>👥 Users</button>
+        <button className={activeTab === "products" ? "tab-active" : "tab"} onClick={() => setActiveTab("products")}>📦 Products</button>
         <button className={activeTab === "gifts" ? "tab-active" : "tab"} onClick={() => setActiveTab("gifts")}>🎁 Gifts</button>
         <button className={activeTab === "redeems" ? "tab-active" : "tab"} onClick={() => setActiveTab("redeems")}>📦 Redeems</button>
       </div>
 
-      {/* Tab Content - All the data tables */}
       {activeTab === "pending" && (
         <div className="admin-section">
           <h3>Pending Approvals ({pendingBills.length})</h3>
@@ -299,23 +336,28 @@ export default function AdminDashboard({ onLogout }) {
             <div className="table-container">
               <table className="data-table">
                 <thead>
-                  <tr><th>Bill No</th><th>Mobile</th><th>Amount</th><th>Points</th><th>Actions</th></tr>
+                  <tr><th>Bill No</th><th>Mobile</th><th>Products</th><th>Total Points</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                   {pendingBills.slice(0, 30).map((bill, i) => (
                     <tr key={i}>
                       <td>{bill.billNo}</td>
                       <td>{bill.mobile}</td>
-                      <td>₹{bill.amount}</td>
-                      <td><strong>{bill.points.toFixed(2)}</strong></td>
+                      <td>
+                        <div className="products-list">
+                          {bill.products && bill.products.map((p, idx) => (
+                            <div key={idx}>{p.name} x{p.quantity} ({p.pointsPerUnit} pts)</div>
+                          ))}
+                        </div>
+                       </td>
+                      <td><strong>{bill.totalPoints?.toFixed(2)}</strong></td>
                       <td>
                         <div className="action-buttons">
-                          <button className="action-btn approve-btn" onClick={() => { setSelectedBill(bill); setShowApproveModal(true); }} disabled={actionLoading} title="Approve Bill">✓</button>
-                          <button className="action-btn cancel-btn" onClick={() => { setSelectedBill(bill); setShowCancelModal(true); }} disabled={actionLoading} title="Cancel Bill">✗</button>
-                          <button className="action-btn edit-btn" onClick={() => { setSelectedBill(bill); setNewAmount(bill.amount); setShowUpdateModal(true); }} disabled={actionLoading} title="Edit Bill">✏️</button>
+                          <button className="action-btn approve-btn" onClick={() => { setSelectedBill(bill); setShowApproveModal(true); }} disabled={actionLoading} title="Approve Bill">✓ Approve</button>
+                          <button className="action-btn cancel-btn" onClick={() => { setSelectedBill(bill); setShowCancelModal(true); }} disabled={actionLoading} title="Cancel Bill">✗ Cancel</button>
                         </div>
-                      </td>
-                    </tr>
+                       </td>
+                     </tr>
                   ))}
                 </tbody>
               </table>
@@ -330,17 +372,23 @@ export default function AdminDashboard({ onLogout }) {
           <div className="table-container">
             <table className="data-table">
               <thead>
-                <tr><th>Bill No</th><th>Mobile</th><th>Amount</th><th>Points</th><th>Status</th></tr>
+                <tr><th>Bill No</th><th>Mobile</th><th>Products</th><th>Total Points</th><th>Status</th></tr>
               </thead>
               <tbody>
                 {bills.slice(0, 50).map((bill, i) => (
                   <tr key={i}>
                     <td>{bill.billNo}</td>
                     <td>{bill.mobile}</td>
-                    <td>₹{bill.amount}</td>
-                    <td>{bill.points.toFixed(2)}</td>
-                    <td><span className={`status-${bill.status.toLowerCase()}`}>{bill.status}</span></td>
-                  </tr>
+                    <td>
+                      <div className="products-list">
+                        {bill.products && bill.products.map((p, idx) => (
+                          <div key={idx}>{p.name} x{p.quantity}</div>
+                        ))}
+                      </div>
+                    </td>
+                    <td>{bill.totalPoints?.toFixed(2)}</td>
+                    <td><span className={`status-${bill.status?.toLowerCase()}`}>{bill.status}</span></td>
+                   </tr>
                 ))}
               </tbody>
             </table>
@@ -375,7 +423,7 @@ export default function AdminDashboard({ onLogout }) {
                     <td>{u.name}</td>
                     <td><strong>{u.totalPoints.toFixed(2)}</strong></td>
                     <td>{new Date(u.createdAt).toLocaleDateString()}</td>
-                  </tr>
+                   </tr>
                 ))}
               </tbody>
             </table>
@@ -383,11 +431,34 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       )}
 
+      {activeTab === "products" && (
+        <div className="admin-section">
+          <div className="section-header">
+            <h3>Products & Points</h3>
+            <button onClick={() => setShowProductModal(true)} className="add-btn" disabled={actionLoading}>+ Add Product</button>
+          </div>
+          <div className="products-admin-grid">
+            {products.map((product, i) => (
+              <div key={i} className="product-admin-card">
+                <div>
+                  <div className="product-name">📦 {product.name}</div>
+                  <div className="product-points">{product.points} points per unit</div>
+                </div>
+                <div className="product-actions">
+                  <button onClick={() => handleUpdateProduct(product)} className="edit-btn" disabled={actionLoading} title="Edit Product">✏️</button>
+                  <button onClick={() => handleDeleteProduct(product.name)} className="delete-btn" disabled={actionLoading} title="Delete Product">🗑️</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {activeTab === "gifts" && (
         <div className="admin-section">
           <div className="section-header">
-            <h3>Gifts</h3>
-            <button onClick={() => setShowGiftModal(true)} className="add-btn" disabled={actionLoading}>+ Add</button>
+            <h3>Gifts (Sorted by Points)</h3>
+            <button onClick={() => setShowGiftModal(true)} className="add-btn" disabled={actionLoading}>+ Add Gift</button>
           </div>
           <div className="gifts-admin-grid">
             {gifts.map((gift, i) => (
@@ -406,61 +477,109 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       )}
 
+      {/* FIXED REDEEM SECTION - Now shows proper action buttons */}
       {activeTab === "redeems" && (
         <div className="admin-section">
           <h3>Redeem Requests</h3>
           <div className="stats-cards">
             <div className="stat-card">
               <div className="stat-icon">⏳</div>
-              <div className="stat-value">{redeems.filter(r => r.status === "Pending").length}</div>
+              <div className="stat-value">{redeems.filter(r => r.status?.toLowerCase() === "pending").length}</div>
               <div className="stat-label">Pending</div>
             </div>
             <div className="stat-card">
               <div className="stat-icon">✅</div>
-              <div className="stat-value">{redeems.filter(r => r.status === "Approved").length}</div>
+              <div className="stat-value">{redeems.filter(r => r.status?.toLowerCase() === "approved").length}</div>
               <div className="stat-label">Approved</div>
             </div>
             <div className="stat-card">
               <div className="stat-icon">📦</div>
-              <div className="stat-value">{redeems.filter(r => r.status === "Delivered").length}</div>
+              <div className="stat-value">{redeems.filter(r => r.status?.toLowerCase() === "delivered").length}</div>
               <div className="stat-label">Delivered</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon">❌</div>
+              <div className="stat-value">{redeems.filter(r => r.status?.toLowerCase() === "cancelled").length}</div>
+              <div className="stat-label">Cancelled</div>
             </div>
           </div>
           <div className="table-container">
             <table className="data-table">
               <thead>
-                <tr><th>ID</th><th>Mobile</th><th>Gift</th><th>Points</th><th>Status</th><th>Action</th></tr>
+                <tr>
+                  <th>ID</th>
+                  <th>Mobile</th>
+                  <th>Gift</th>
+                  <th>Points</th>
+                  <th>Address</th>
+                  <th>Status</th>
+                  <th>Tracking ID</th>
+                  <th>Actions</th>
+                 </tr>
               </thead>
               <tbody>
-                {redeems.slice(0, 30).map((redeem, i) => (
-                  <tr key={i}>
-                    <td>{redeem.id}</td>
-                    <td>{redeem.mobile}</td>
-                    <td>{redeem.gift}</td>
-                    <td>{redeem.points}</td>
-                    <td><span className={`status-${redeem.status.toLowerCase()}`}>{redeem.status}</span></td>
-                    <td>
-                      <div className="action-buttons">
-                        <button className="action-btn view-btn" onClick={() => { setSelectedRedeem(redeem); setShowRedeemModal(true); }} disabled={actionLoading} title="View Details">👁️</button>
-                        {getStatusOptions(redeem.status).length > 0 && (
-                          <select className="status-select" onChange={(e) => { setSelectedRedeem(redeem); setSelectedStatus(e.target.value); setTrackingId(""); setCancelReason(""); setShowStatusModal(true); }} value="" disabled={actionLoading}>
-                            <option value="">Change</option>
-                            {getStatusOptions(redeem.status).map(opt => (
-                              <option key={opt} value={opt}>{opt}</option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {redeems.slice(0, 30).map((redeem, i) => {
+                  const availableActions = getAvailableActions(redeem.status);
+                  return (
+                    <tr key={i}>
+                      <td>{redeem.id}</td>
+                      <td>{redeem.mobile}</td>
+                      <td>{redeem.gift}</td>
+                      <td>{redeem.points}</td>
+                      <td className="address-cell">{redeem.address?.substring(0, 30)}...</td>
+                      <td><span className={`status-${redeem.status?.toLowerCase()}`}>{redeem.status}</span></td>
+                      <td>{redeem.trackingId || "-"}</td>
+                      <td>
+                        <div className="action-buttons">
+                          <button 
+                            className="action-btn view-btn" 
+                            onClick={() => { setSelectedRedeem(redeem); setShowRedeemModal(true); }} 
+                            disabled={actionLoading} 
+                            title="View Details"
+                          >
+                            👁️ View
+                          </button>
+                          {availableActions.includes("approve") && (
+                            <button 
+                              className="action-btn approve-btn" 
+                              onClick={() => handleApproveRedeem(redeem)}
+                              disabled={actionLoading}
+                              title="Approve Redeem"
+                            >
+                              ✓ Approve
+                            </button>
+                          )}
+                          {availableActions.includes("deliver") && (
+                            <button 
+                              className="action-btn deliver-btn" 
+                              onClick={() => handleDeliverRedeem(redeem)}
+                              disabled={actionLoading}
+                              title="Mark as Delivered"
+                            >
+                              📦 Deliver
+                            </button>
+                          )}
+                          {availableActions.includes("cancel") && (
+                            <button 
+                              className="action-btn cancel-btn" 
+                              onClick={() => handleCancelRedeem(redeem)}
+                              disabled={actionLoading}
+                              title="Cancel Redeem"
+                            >
+                              ✗ Cancel
+                            </button>
+                          )}
+                        </div>
+                       </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* Hero Section - AT THE BOTTOM as you want */}
       <div className="hero-section admin-hero">
         <div className="hero-overlay"></div>
         <div className="hero-content">
@@ -474,7 +593,6 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       </div>
       
-      {/* Quality Features - AT THE BOTTOM */}
       <div className="quality-features">
         <h2>Quality Standards</h2>
         <div className="quality-grid">
@@ -488,7 +606,6 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       </div>
 
-      {/* Footer Stats - AT THE BOTTOM */}
       <div className="brand-stats-footer">
         <div className="stats-container">
           {brandData.stats.map((stat, idx) => (
@@ -503,14 +620,25 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       </div>
 
-      {/* All Modals */}
+      {/* Approve Bill Modal */}
       {showApproveModal && selectedBill && (
         <div className="modal-overlay" onClick={() => setShowApproveModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3>Approve Bill</h3>
-            <p>Bill: <strong>{selectedBill.billNo}</strong> | Amount: ₹{selectedBill.amount}</p>
-            <p>Points to add: <strong>{selectedBill.points.toFixed(2)}</strong></p>
-            <textarea placeholder="Admin remark (optional)" value={adminRemark} onChange={e => setAdminRemark(e.target.value)} className="form-input" rows="2" />
+            <p>Bill: <strong>{selectedBill.billNo}</strong></p>
+            <div className="products-details">
+              {selectedBill.products && selectedBill.products.map((p, idx) => (
+                <div key={idx}>{p.name} x{p.quantity} = {p.quantity * p.pointsPerUnit} points</div>
+              ))}
+            </div>
+            <p>Total Points to add: <strong>{selectedBill.totalPoints?.toFixed(2)}</strong></p>
+            <textarea 
+              placeholder="Admin remark (optional)" 
+              value={adminRemark} 
+              onChange={e => setAdminRemark(e.target.value)} 
+              className="form-input" 
+              rows="2" 
+            />
             <div className="modal-actions">
               <button onClick={handleApproveBill} className="submit-btn approve-btn" disabled={actionLoading}>
                 {actionLoading ? <div className="spinner"></div> : "Approve"}
@@ -521,12 +649,19 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       )}
 
+      {/* Cancel Bill Modal */}
       {showCancelModal && selectedBill && (
         <div className="modal-overlay" onClick={() => setShowCancelModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3>Cancel Bill</h3>
             <p>Bill: <strong>{selectedBill.billNo}</strong></p>
-            <textarea placeholder="Cancel reason *" value={cancelReason} onChange={e => setCancelReason(e.target.value)} className="form-input" rows="3" />
+            <textarea 
+              placeholder="Cancel reason *" 
+              value={cancelReason} 
+              onChange={e => setCancelReason(e.target.value)} 
+              className="form-input" 
+              rows="3" 
+            />
             <div className="modal-actions">
               <button onClick={handleCancelBill} className="submit-btn cancel-btn" disabled={actionLoading}>
                 {actionLoading ? <div className="spinner"></div> : "Confirm Cancel"}
@@ -537,29 +672,52 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       )}
 
-      {showUpdateModal && selectedBill && (
-        <div className="modal-overlay" onClick={() => setShowUpdateModal(false)}>
+      {/* Add Product Modal */}
+      {showProductModal && (
+        <div className="modal-overlay" onClick={() => setShowProductModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3>Update Bill</h3>
-            <p>Current Amount: ₹{selectedBill.amount}</p>
-            <input type="number" placeholder="New Amount" value={newAmount} onChange={e => setNewAmount(e.target.value)} className="form-input" />
-            <textarea placeholder="Reason for update *" value={updateReason} onChange={e => setUpdateReason(e.target.value)} className="form-input" rows="2" />
+            <h3>Add Product</h3>
+            <input 
+              placeholder="Product Name" 
+              value={productName} 
+              onChange={e => setProductName(e.target.value)} 
+              className="form-input" 
+            />
+            <input 
+              type="number" 
+              placeholder="Points per Unit" 
+              value={productPoints} 
+              onChange={e => setProductPoints(e.target.value)} 
+              className="form-input" 
+            />
             <div className="modal-actions">
-              <button onClick={handleUpdateBill} className="submit-btn" disabled={actionLoading}>
-                {actionLoading ? <div className="spinner"></div> : "Update"}
+              <button onClick={handleAddProduct} className="submit-btn" disabled={actionLoading}>
+                {actionLoading ? <div className="spinner"></div> : "Add Product"}
               </button>
-              <button onClick={() => setShowUpdateModal(false)} className="cancel-btn">Cancel</button>
+              <button onClick={() => setShowProductModal(false)} className="cancel-btn">Cancel</button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Add Gift Modal */}
       {showGiftModal && (
         <div className="modal-overlay" onClick={() => setShowGiftModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3>Add Gift</h3>
-            <input placeholder="Gift Name" value={giftName} onChange={e => setGiftName(e.target.value)} className="form-input" />
-            <input type="number" placeholder="Points Required" value={giftPoints} onChange={e => setGiftPoints(e.target.value)} className="form-input" />
+            <input 
+              placeholder="Gift Name" 
+              value={giftName} 
+              onChange={e => setGiftName(e.target.value)} 
+              className="form-input" 
+            />
+            <input 
+              type="number" 
+              placeholder="Points Required" 
+              value={giftPoints} 
+              onChange={e => setGiftPoints(e.target.value)} 
+              className="form-input" 
+            />
             <div className="modal-actions">
               <button onClick={handleAddGift} className="submit-btn" disabled={actionLoading}>
                 {actionLoading ? <div className="spinner"></div> : "Add Gift"}
@@ -570,22 +728,51 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       )}
 
+      {/* Update Redeem Status Modal */}
       {showStatusModal && selectedRedeem && (
         <div className="modal-overlay" onClick={() => setShowStatusModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3>Update Status to {selectedStatus}</h3>
+            <p>Redeem ID: <strong>{selectedRedeem.id}</strong></p>
+            <p>Gift: {selectedRedeem.gift}</p>
+            <p>Points: {selectedRedeem.points}</p>
+            
             {selectedStatus === "Approved" && (
-              <input placeholder="Tracking ID *" value={trackingId} onChange={e => setTrackingId(e.target.value)} className="form-input" />
+              <div className="form-group">
+                <label>Tracking ID *</label>
+                <input 
+                  placeholder="Enter tracking ID" 
+                  value={trackingId} 
+                  onChange={e => setTrackingId(e.target.value)} 
+                  className="form-input" 
+                />
+                <small>This tracking ID will be shared with the user</small>
+              </div>
             )}
+            
+            {selectedStatus === "Delivered" && (
+              <div className="form-group">
+                <p className="info-text">✅ Mark this redeem request as delivered. No additional information needed.</p>
+              </div>
+            )}
+            
             {selectedStatus === "Cancelled" && (
-              <>
-                <textarea placeholder="Cancel reason *" value={cancelReason} onChange={e => setCancelReason(e.target.value)} className="form-input" rows="3" />
+              <div className="form-group">
+                <label>Cancellation Reason *</label>
+                <textarea 
+                  placeholder="Enter reason for cancellation" 
+                  value={cancelReason} 
+                  onChange={e => setCancelReason(e.target.value)} 
+                  className="form-input" 
+                  rows="3" 
+                />
                 <p className="warning-text">⚠️ Points will be refunded to the user</p>
-              </>
+              </div>
             )}
+            
             <div className="modal-actions">
               <button onClick={handleUpdateRedeemStatus} className="submit-btn" disabled={actionLoading}>
-                {actionLoading ? <div className="spinner"></div> : "Confirm"}
+                {actionLoading ? <div className="spinner"></div> : `Confirm ${selectedStatus}`}
               </button>
               <button onClick={() => setShowStatusModal(false)} className="cancel-btn">Cancel</button>
             </div>
@@ -593,6 +780,7 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       )}
 
+      {/* View Redeem Details Modal */}
       {showRedeemModal && selectedRedeem && (
         <div className="modal-overlay" onClick={() => setShowRedeemModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -606,6 +794,9 @@ export default function AdminDashboard({ onLogout }) {
               <div className="detail-row"><strong>Status:</strong> {selectedRedeem.status}</div>
               {selectedRedeem.trackingId && (
                 <div className="detail-row"><strong>Tracking ID:</strong> {selectedRedeem.trackingId}</div>
+              )}
+              {selectedRedeem.requestedAt && (
+                <div className="detail-row"><strong>Requested:</strong> {new Date(selectedRedeem.requestedAt).toLocaleString()}</div>
               )}
               {selectedRedeem.approvedAt && (
                 <div className="detail-row"><strong>Approved:</strong> {new Date(selectedRedeem.approvedAt).toLocaleString()}</div>

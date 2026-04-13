@@ -1,55 +1,48 @@
-// ================= React Frontend - UserDashboard.js (Optimized) =================
+// ================= React Frontend - UserDashboard.js (UPDATED with Multi-Product & Manual Bill No) =================
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "./api";
 
 export default function UserDashboard({ user, onLogout }) {
   const [userData, setUserData] = useState(null);
-  const [billNo, setBillNo] = useState("");
-  const [amount, setAmount] = useState("");
-  const [ref, setRef] = useState("");
+  const [products, setProducts] = useState([]);
+  const [billItems, setBillItems] = useState([]);
+  const [manualBillNo, setManualBillNo] = useState("");
+  const [referenceName, setReferenceName] = useState("");
   const [activeTab, setActiveTab] = useState("bills");
-  const [pointsPerThousand, setPointsPerThousand] = useState(1);
   const [gifts, setGifts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState("");
+  const [quantity, setQuantity] = useState(1);
   
-  // Cache refs
   const dataLoadedRef = useRef(false);
   const abortControllerRef = useRef(null);
 
-  // GREYSTONE Brand Data
   const brandData = {
     name: "GREYSTONE",
     tagline: "Premium Plywood & Furniture Solutions",
-    founded: "2020",
     features: ["🌟 Quality Assured", "🌿 Eco-Friendly", "💪 10 Year Warranty"],
     products: [
       { name: "GREYSTONE CHAUGATH", description: "5×2.5 inch & 6×2.5 inch | 25 year guarantee", icon: "🚪" },
-      { name: "VENEER", description: "4mm thickness | Buram Teak, Santos, White Ash, Red Oak", icon: "🌳" },
+      { name: "VENEER", description: "4mm thickness", icon: "🌳" },
       { name: "GREYSTONE LAMINATES", description: "Thickness: 0.72mm to 1.25mm", icon: "📐" },
       { name: "GREYSTONE FLUSH DOORS", description: "30mm, 32mm | Water proof", icon: "🚪" }
     ]
   };
 
   const loadData = useCallback(async (showLoading = true) => {
-    if (showLoading && !dataLoadedRef.current) {
-      setLoading(true);
-    } else if (dataLoadedRef.current) {
-      setRefreshing(true);
-    }
+    if (showLoading && !dataLoadedRef.current) setLoading(true);
+    else if (dataLoadedRef.current) setRefreshing(true);
     
-    // Cancel previous request if exists
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+    if (abortControllerRef.current) abortControllerRef.current.abort();
     abortControllerRef.current = new AbortController();
     
     try {
-      const [userRes, giftsRes, pointsRes] = await Promise.all([
+      const [userRes, giftsRes, productsRes] = await Promise.all([
         api("getUserData", { mobileNumber: user.mobileNumber }),
         api("getAllGifts"),
-        api("getPointSetting")
+        api("getProducts")
       ]);
       
       if (userRes.success) setUserData(userRes);
@@ -57,13 +50,11 @@ export default function UserDashboard({ user, onLogout }) {
         const activeGifts = giftsRes.gifts.filter(gift => gift.active === true);
         setGifts(activeGifts.sort((a, b) => a.points - b.points));
       }
-      if (pointsRes.success) setPointsPerThousand(pointsRes.pointsPerThousand);
+      if (productsRes.success) setProducts(productsRes.products);
       
       dataLoadedRef.current = true;
     } catch (error) {
-      if (error.name !== 'AbortError') {
-        console.error("Load error:", error);
-      }
+      if (error.name !== 'AbortError') console.error("Load error:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -73,31 +64,61 @@ export default function UserDashboard({ user, onLogout }) {
   useEffect(() => {
     loadData();
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+      if (abortControllerRef.current) abortControllerRef.current.abort();
     };
   }, [loadData]);
 
-  const addBill = async () => {
-    if (!billNo || !amount || !ref) {
-      alert("Please fill all fields");
+  const addBillItem = () => {
+    if (!selectedProduct || !quantity) {
+      alert("Please select product and enter quantity");
       return;
     }
+    const product = products.find(p => p.name === selectedProduct);
+    if (!product) return;
+    
+    setBillItems([...billItems, {
+      name: selectedProduct,
+      quantity: Number(quantity),
+      pointsPerUnit: product.points,
+      totalPoints: quantity * product.points
+    }]);
+    setSelectedProduct("");
+    setQuantity(1);
+  };
+
+  const removeBillItem = (index) => {
+    const newItems = [...billItems];
+    newItems.splice(index, 1);
+    setBillItems(newItems);
+  };
+
+  const getTotalBillPoints = () => {
+    return billItems.reduce((sum, item) => sum + item.totalPoints, 0);
+  };
+
+  const submitBill = async () => {
+    if (billItems.length === 0) {
+      alert("Please add at least one product to the bill");
+      return;
+    }
+    if (!referenceName) {
+      alert("Please enter reference name");
+      return;
+    }
+    
     setSubmitLoading(true);
     const res = await api("addBill", {
       mobileNumber: user.mobileNumber,
-      billNo,
-      referenceName: ref,
-      amount: Number(amount)
+      products: billItems,
+      referenceName: referenceName,
+      billNo: manualBillNo || null
     });
     setSubmitLoading(false);
     if (res.success) {
-      alert(res.message || "Bill submitted for admin approval!");
-      setBillNo("");
-      setAmount("");
-      setRef("");
-      // Silent refresh without full loading screen
+      alert(`Bill submitted for approval!\nBill No: ${res.billNo}\nTotal Points: ${res.totalPoints}`);
+      setBillItems([]);
+      setManualBillNo("");
+      setReferenceName("");
       loadData(false);
     } else alert(res.error);
   };
@@ -212,7 +233,6 @@ export default function UserDashboard({ user, onLogout }) {
     return statusMap[status] || status;
   };
 
-  // Skeleton Loader
   if (loading) {
     return (
       <div className="dashboard-container">
@@ -241,13 +261,11 @@ export default function UserDashboard({ user, onLogout }) {
 
   if (!userData) return <div className="error-state">Failed to load data. Please refresh.</div>;
 
-  const calculatedPoints = (Number(amount) / 1000) * pointsPerThousand;
 
   return (
     <div className="dashboard-container">
       {refreshing && <div className="toast-refresh">Refreshing data...</div>}
 
-      {/* Dashboard Header - Top */}
       <div className="dashboard-header">
         <div className="header-left">
           <div className="logo-small">
@@ -265,10 +283,8 @@ export default function UserDashboard({ user, onLogout }) {
         </div>
       </div>
 
-      {/* Points Bar */}
       {getPointsBar()}
 
-      {/* Tabs Section */}
       <div className="tabs">
         <button className={activeTab === "bills" ? "tab-active" : "tab"} onClick={() => setActiveTab("bills")}>📄 Add Bill</button>
         <button className={activeTab === "history" ? "tab-active" : "tab"} onClick={() => setActiveTab("history")}>📊 History</button>
@@ -276,17 +292,83 @@ export default function UserDashboard({ user, onLogout }) {
         <button className={activeTab === "redeem-history" ? "tab-active" : "tab"} onClick={() => setActiveTab("redeem-history")}>📜 Redeems</button>
       </div>
 
-      {/* Tab Content */}
       {activeTab === "bills" && (
         <div className="bill-form">
           <h3>Add New Bill</h3>
           <div className="info-banner">⏳ Requires admin approval before points are credited</div>
-          <input placeholder="Bill Number" value={billNo} onChange={e => setBillNo(e.target.value)} className="form-input" disabled={submitLoading} />
-          <input placeholder="Reference Name" value={ref} onChange={e => setRef(e.target.value)} className="form-input" disabled={submitLoading} />
-          <input type="number" placeholder="Amount (₹)" value={amount} onChange={e => setAmount(e.target.value)} className="form-input" disabled={submitLoading} />
-          {amount && <div className="points-preview">🌟 You will earn: {calculatedPoints.toFixed(2)} points</div>}
-          <button onClick={addBill} className="submit-btn" disabled={submitLoading}>
-            {submitLoading ? <div className="spinner"></div> : "Submit for Approval"}
+          
+          <div className="form-group">
+            <label>Bill Number (Optional - Leave blank for auto-generate)</label>
+            <input 
+              type="text" 
+              placeholder="Enter manual bill number or leave blank" 
+              value={manualBillNo} 
+              onChange={e => setManualBillNo(e.target.value)} 
+              className="form-input" 
+              disabled={submitLoading}
+            />
+          </div>
+
+          <div className="multi-product-section">
+            <h4>Add Products</h4>
+            <div className="product-row">
+              <select 
+                value={selectedProduct} 
+                onChange={e => setSelectedProduct(e.target.value)} 
+                className="form-input product-select"
+                disabled={submitLoading}
+              >
+                <option value="">Select Product</option>
+                {products.map((product, idx) => (
+                  <option key={idx} value={product.name}>
+                    {product.name} - {product.points} pts/unit
+                  </option>
+                ))}
+              </select>
+              
+              <input 
+                type="number" 
+                placeholder="Qty" 
+                value={quantity} 
+                onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} 
+                className="form-input quantity-input" 
+                disabled={submitLoading}
+                min="1"
+              />
+              
+              <button onClick={addBillItem} className="add-item-btn" disabled={submitLoading}>+ Add</button>
+            </div>
+          </div>
+
+          {billItems.length > 0 && (
+            <div className="bill-items-list">
+              <h4>Bill Items</h4>
+              <div className="items-container">
+                {billItems.map((item, index) => (
+                  <div key={index} className="bill-item">
+                    <span className="item-name">{item.name}</span>
+                    <span className="item-qty">x{item.quantity}</span>
+                    <span className="item-points">{item.totalPoints} pts</span>
+                    <button onClick={() => removeBillItem(index)} className="remove-item-btn" disabled={submitLoading}>✗</button>
+                  </div>
+                ))}
+                <div className="bill-total">
+                  <strong>Total Points: {getTotalBillPoints()}</strong>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <input 
+            placeholder="Reference Name *" 
+            value={referenceName} 
+            onChange={e => setReferenceName(e.target.value)} 
+            className="form-input" 
+            disabled={submitLoading} 
+          />
+          
+          <button onClick={submitBill} className="submit-btn" disabled={submitLoading || billItems.length === 0}>
+            {submitLoading ? <div className="spinner"></div> : "Submit Bill for Approval"}
           </button>
         </div>
       )}
@@ -297,21 +379,27 @@ export default function UserDashboard({ user, onLogout }) {
           {userData.bills?.length > 0 ? (
             <div className="table-container">
               <table className="data-table">
-                <thead><tr><th>Bill No</th><th>Reference</th><th>Amount</th><th>Points</th><th>Status</th><th>Remark</th></tr></thead>
+                <thead>
+                  <tr><th>Bill No</th><th>Products</th><th>Total Points</th><th>Status</th><th>Remark</th></tr>
+                </thead>
                 <tbody>
                   {userData.bills.slice(0, 20).map((bill, i) => (
                     <tr key={i}>
                       <td>{bill.billNo}</td>
-                      <td>{bill.ref}</td>
-                      <td>₹{bill.amount}</td>
-                      <td>{bill.points.toFixed(2)}</td>
+                      <td>
+                        <div className="products-list">
+                          {bill.products.map((p, idx) => (
+                            <div key={idx}>{p.name} x{p.quantity}</div>
+                          ))}
+                        </div>
+                      </td>
+                      <td>{bill.totalPoints.toFixed(2)}</td>
                       <td><span className={`status-${bill.status.toLowerCase()}`}>{getStatusBadge(bill.status)}</span></td>
                       <td>{bill.adminRemark || "-"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {userData.bills.length > 20 && <div className="show-more">+ {userData.bills.length - 20} more bills</div>}
             </div>
           ) : <p className="no-data">No bills found</p>}
         </div>
@@ -343,7 +431,9 @@ export default function UserDashboard({ user, onLogout }) {
           {userData.redeems?.length > 0 ? (
             <div className="table-container">
               <table className="data-table">
-                <thead><tr><th>Gift</th><th>Points</th><th>Status</th><th>Tracking</th><th>Date</th></tr></thead>
+                <thead>
+                  <tr><th>Gift</th><th>Points</th><th>Status</th><th>Tracking</th><th>Date</th></tr>
+                </thead>
                 <tbody>
                   {userData.redeems.slice(0, 20).map((redeem, i) => (
                     <tr key={i}>
@@ -361,7 +451,6 @@ export default function UserDashboard({ user, onLogout }) {
         </div>
       )}
       
-      {/* Hero Section - AT THE BOTTOM as you want */}
       <div className="hero-section">
         <div className="hero-overlay"></div>
         <div className="hero-content">
@@ -373,7 +462,6 @@ export default function UserDashboard({ user, onLogout }) {
         </div>
       </div>
       
-      {/* Products Showcase - AT THE BOTTOM */}
       <div className="products-showcase">
         <h2>Our Premium Products</h2>
         <div className="products-grid-mini">
@@ -387,7 +475,6 @@ export default function UserDashboard({ user, onLogout }) {
         </div>
       </div>
       
-      {/* Footer - AT THE BOTTOM */}
       <div className="brand-footer">
         <div className="footer-content">
           <div className="footer-logo">🌳 GREYSTONE</div>

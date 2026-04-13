@@ -1,40 +1,101 @@
-// ================= React Frontend - App.js =================
-import React, { useState } from "react";
+// ================= React Frontend - App.js (with Routing) =================
+import React, { useState, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { api } from "./api";
 import UserDashboard from "./UserDashboard";
 import AdminDashboard from "./AdminDashboard";
 import './App.css';
 
-export default function App() {
-  const [page, setPage] = useState("login");
-  const [user, setUser] = useState(null);
+// Session management
+const SESSION_KEY = "greystone_session";
 
-  const handleLogout = () => {
-    setUser(null);
-    setPage("login");
+export default function App() {
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Check for existing session on app load
+    const savedSession = localStorage.getItem(SESSION_KEY);
+    if (savedSession) {
+      try {
+        const sessionData = JSON.parse(savedSession);
+        // Validate session with backend (optional but recommended)
+        setSession(sessionData);
+      } catch (e) {
+        localStorage.removeItem(SESSION_KEY);
+      }
+    }
+    setLoading(false);
+  }, []);
+
+  const handleLogin = (userData, role) => {
+    const sessionData = {
+      user: userData,
+      role: role,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+    setSession(sessionData);
   };
 
-  if (page === "login") return <Login setPage={setPage} setUser={setUser} />;
-  if (page === "signup") return <Signup setPage={setPage} />;
-  if (page === "user") return <UserDashboard user={user} onLogout={handleLogout} />;
-  if (page === "admin") return <AdminDashboard onLogout={handleLogout} />;
+  const handleLogout = () => {
+    localStorage.removeItem(SESSION_KEY);
+    setSession(null);
+  };
+
+  if (loading) {
+    return <div className="loading-screen">Loading...</div>;
+  }
+
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={
+          session?.role === "user" ? <Navigate to="/userdashboard" /> :
+          session?.role === "admin" ? <Navigate to="/admindashboard" /> :
+          <LoginPage onLogin={handleLogin} />
+        } />
+        <Route path="/login" element={
+          session ? <Navigate to={session.role === "user" ? "/userdashboard" : "/admindashboard"} /> :
+          <LoginPage onLogin={handleLogin} />
+        } />
+        <Route path="/signup" element={
+          session ? <Navigate to={session.role === "user" ? "/userdashboard" : "/admindashboard"} /> :
+          <SignupPage onLogin={handleLogin} />
+        } />
+        <Route path="/userdashboard" element={
+          session?.role === "user" ? 
+          <UserDashboard user={session.user} onLogout={handleLogout} /> : 
+          <Navigate to="/login" />
+        } />
+        <Route path="/admindashboard" element={
+          session?.role === "admin" ? 
+          <AdminDashboard onLogout={handleLogout} /> : 
+          <Navigate to="/login" />
+        } />
+      </Routes>
+    </Router>
+  );
 }
 
-function Login({ setPage, setUser }) {
+function LoginPage({ onLogin }) {
   const [mobileNumber, setMobile] = useState("");
-  const [aadhaarNumber, setAadhaar] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleLogin = async () => {
+    if (!mobileNumber || !password) {
+      alert("Please enter mobile number and password");
+      return;
+    }
     setLoading(true);
-    const res = await api("login", { mobileNumber, aadhaarNumber });
+    const res = await api("login", { mobileNumber, password });
     setLoading(false);
     if (res.success) {
-      if (res.role === "admin") setPage("admin");
-      else {
-        setUser({ mobileNumber });
-        setPage("user");
-      }
+      onLogin({ mobileNumber, name: res.name }, res.role);
+      if (res.role === "admin") navigate("/admindashboard");
+      else navigate("/userdashboard");
     } else alert(res.error);
   };
 
@@ -50,39 +111,66 @@ function Login({ setPage, setUser }) {
         <input 
           type="tel"
           placeholder="Mobile Number" 
+          value={mobileNumber}
           onChange={e => setMobile(e.target.value)} 
           className="auth-input"
           disabled={loading}
         />
         <input 
           type="password"
-          placeholder="Aadhaar Number" 
-          onChange={e => setAadhaar(e.target.value)} 
+          placeholder="Password" 
+          value={password}
+          onChange={e => setPassword(e.target.value)} 
           className="auth-input"
           disabled={loading}
+          onKeyPress={e => e.key === 'Enter' && handleLogin()}
         />
         <button onClick={handleLogin} className="auth-btn" disabled={loading}>
           {loading ? <div className="spinner"></div> : "Login →"}
         </button>
-        <p className="auth-link" onClick={() => setPage("signup")}>Create Account →</p>
+        <p className="auth-link" onClick={() => navigate("/signup")}>Create Account →</p>
       </div>
     </div>
   );
 }
 
-function Signup({ setPage }) {
+function SignupPage({ onLogin }) {
   const [mobileNumber, setMobile] = useState("");
   const [aadhaarNumber, setAadhaar] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleSignup = async () => {
+    if (!name || !mobileNumber || !aadhaarNumber || !password) {
+      alert("Please fill all fields");
+      return;
+    }
+    if (mobileNumber.length !== 10) {
+      alert("Mobile number must be 10 digits");
+      return;
+    }
+    if (!/^\d{12}$/.test(aadhaarNumber)) {
+      alert("Aadhaar number must be 12 digits");
+      return;
+    }
+    if (password.length < 4) {
+      alert("Password must be at least 4 characters");
+      return;
+    }
+    if (password !== confirmPassword) {
+      alert("Passwords do not match");
+      return;
+    }
+    
     setLoading(true);
-    const res = await api("register", { mobileNumber, aadhaarNumber, name });
+    const res = await api("register", { mobileNumber, aadhaarNumber, password, name });
     setLoading(false);
     if (res.success) {
-      alert("Registered Successfully");
-      setPage("login");
+      alert("Registered Successfully! Please login.");
+      navigate("/login");
     } else alert(res.error);
   };
 
@@ -97,28 +185,47 @@ function Signup({ setPage }) {
         </div>
         <input 
           placeholder="Full Name" 
+          value={name}
           onChange={e => setName(e.target.value)} 
           className="auth-input"
           disabled={loading}
         />
         <input 
           type="tel"
-          placeholder="Mobile Number" 
-          onChange={e => setMobile(e.target.value)} 
+          placeholder="Mobile Number (10 digits)" 
+          value={mobileNumber}
+          onChange={e => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))} 
+          className="auth-input"
+          disabled={loading}
+        />
+        <input 
+          type="text"
+          placeholder="Aadhaar Number (12 digits)" 
+          value={aadhaarNumber}
+          onChange={e => setAadhaar(e.target.value.replace(/\D/g, '').slice(0, 12))} 
           className="auth-input"
           disabled={loading}
         />
         <input 
           type="password"
-          placeholder="Aadhaar Number" 
-          onChange={e => setAadhaar(e.target.value)} 
+          placeholder="Password" 
+          value={password}
+          onChange={e => setPassword(e.target.value)} 
+          className="auth-input"
+          disabled={loading}
+        />
+        <input 
+          type="password"
+          placeholder="Confirm Password" 
+          value={confirmPassword}
+          onChange={e => setConfirmPassword(e.target.value)} 
           className="auth-input"
           disabled={loading}
         />
         <button onClick={handleSignup} className="auth-btn" disabled={loading}>
           {loading ? <div className="spinner"></div> : "Register →"}
         </button>
-        <p className="auth-link" onClick={() => setPage("login")}>← Back to Login</p>
+        <p className="auth-link" onClick={() => navigate("/login")}>← Back to Login</p>
       </div>
     </div>
   );

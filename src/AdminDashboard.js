@@ -1,5 +1,6 @@
 // ================= React Frontend - AdminDashboard.js (Fixed Dealer Name) =================
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { Link } from "react-router-dom";
 import { api } from "./api";
 
 export default function AdminDashboard({ onLogout }) {
@@ -676,6 +677,7 @@ export default function AdminDashboard({ onLogout }) {
         </div>
         <div className="footer-note">
           <p>🌳 GREYSTONE - Premium Plywood | Since 2020</p>
+          <Link to="/privacy-policy" className="footer-privacy-link">Privacy Policy</Link>
         </div>
       </div>
 

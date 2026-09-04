@@ -4408,3 +4408,24 @@ select.form-input:disabled {
   visibility: visible;
   opacity: 1;
 }
+
+/* ================= Privacy Policy Footer Link ================= */
+.footer-privacy-link {
+  color: #c49a6c;
+  text-decoration: none;
+  font-size: 0.8rem;
+  margin-top: 0.8rem;
+  display: inline-block;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+
+.footer-privacy-link:hover {
+  color: #e8c49a;
+  text-decoration: underline;
+}
+
+.privacy-footer-link {
+  font-size: 0.75rem !important;
+  opacity: 0.7;
+}

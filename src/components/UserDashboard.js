@@ -1,9 +1,10 @@
 // components/UserDashboard.js
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { makeApiCall } from '../api';
 
-function UserDashboard({ userData }) {
-  const [userInfo, setUserInfo] = useState(userData);
+function UserDashboard({ user, onLogout }) {
+  const [userInfo, setUserInfo] = useState(user || { name: '', totalPoints: 0, mobileNumber: '' });
   const [bills, setBills] = useState([]);
   const [gifts, setGifts] = useState([]);
   const [newBill, setNewBill] = useState({ billNo: '', referenceName: '', amount: '' });
@@ -81,6 +82,7 @@ function UserDashboard({ userData }) {
         <div className="points-card">
           <h3>Total Points: {userInfo.totalPoints}</h3>
         </div>
+        <button onClick={onLogout} className="logout-btn">🚪 Logout</button>
       </div>
 
       {message && <div className="message">{message}</div>}
@@ -162,6 +164,11 @@ function UserDashboard({ userData }) {
           ))}
         </div>
       </div>
+
+      <footer className="dashboard-footer">
+        <p>🌳 GREYSTONE - Premium Plywood & Furniture Solutions</p>
+        <Link to="/privacy-policy" className="footer-privacy-link">Privacy Policy</Link>
+      </footer>
 
       {showRedeem && selectedGift && (
         <div className="modal">

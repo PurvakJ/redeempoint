@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "r
 import { api } from "./api";
 import UserDashboard from "./UserDashboard";
 import AdminDashboard from "./AdminDashboard";
+import PrivacyPolicy from "./PrivacyPolicy";
 import './App.css';
 
 // Session management
@@ -73,6 +74,7 @@ export default function App() {
           <AdminDashboard onLogout={handleLogout} /> : 
           <Navigate to="/login" />
         } />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
       </Routes>
     </Router>
   );
@@ -129,6 +131,9 @@ function LoginPage({ onLogin }) {
           {loading ? <div className="spinner"></div> : "Login →"}
         </button>
         <p className="auth-link" onClick={() => navigate("/signup")}>Create Account →</p>
+        <p className="auth-link privacy-footer-link" onClick={() => navigate("/privacy-policy")}>
+          Privacy Policy
+        </p>
       </div>
     </div>
   );
@@ -226,6 +231,9 @@ function SignupPage({ onLogin }) {
           {loading ? <div className="spinner"></div> : "Register →"}
         </button>
         <p className="auth-link" onClick={() => navigate("/login")}>← Back to Login</p>
+        <p className="auth-link privacy-footer-link" onClick={() => navigate("/privacy-policy")}>
+          Privacy Policy
+        </p>
       </div>
     </div>
   );
